@@ -324,6 +324,11 @@ func decodeStatus(acc telegraf.Accumulator, input string) error {
 		return fmt.Errorf("failed to parse json: '%s': %v", input, err)
 	}
 
+	err = decodeHealth(acc, data)
+	if err != nil {
+		return err
+	}
+
 	err = decodeStatusOsdmap(acc, data)
 	if err != nil {
 		return err
@@ -339,6 +344,26 @@ func decodeStatus(acc telegraf.Accumulator, input string) error {
 		return err
 	}
 
+	return nil
+}
+
+func decodeHealth(acc telegraf.Accumulator, data map[string]interface{}) error {
+	healthmap, ok := data["health"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("WARNING %s - unable to decode healthmap", measurement)
+	}
+	status := healthmap["overall_status"]
+	status_code := float64(0)
+	switch status {
+	case "HEALTH_OK":
+		status_code = 0
+	case "HEALTH_WARN":
+		status_code = 1
+	case "HEALTH_ERR":
+		status_code = 2
+	}
+	acc.AddFields("ceph_health", map[string]interface{}{"overall_status": status}, map[string]string{})
+	acc.AddFields("ceph_health", map[string]interface{}{"overall_status_code": status_code}, map[string]string{})
 	return nil
 }
 
